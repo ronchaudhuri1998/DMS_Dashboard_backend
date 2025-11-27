@@ -67,6 +67,8 @@ class PDFProcessor:
             if not settings.aws_s3_bucket:
                 error_msg = "S3 bucket not configured. Please set AWS_S3_BUCKET in environment variables."
                 print(f"❌ {error_msg}")
+                print(f"   Current AWS_S3_BUCKET value: '{settings.aws_s3_bucket}' (empty or None)")
+                print(f"   Check Railway Variables tab and ensure AWS_S3_BUCKET is set correctly")
                 return {
                     "success": False,
                     "error": error_msg,
