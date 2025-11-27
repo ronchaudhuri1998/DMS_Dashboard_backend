@@ -88,13 +88,27 @@ class PDFProcessor:
                 if existing_data:
                     print(f"✅ Found existing processed data - returning cached result")
                     return existing_data
-                # File exists in S3 - don't re-upload or re-process
-                return {
-                    "success": False,
-                    "error": f"File '{filename}' already exists in S3. Processing skipped to avoid duplicates.",
-                    "already_exists": True,
-                    "processing_time": datetime.now().isoformat()
-                }
+                # File exists in S3 but no processed data - download from S3 and process
+                print(f"📥 File exists in S3 but no processed data. Downloading from S3 to re-process...")
+                try:
+                    # Download file from S3 to local path for processing
+                    self.s3_client.download_file(
+                        settings.aws_s3_bucket,
+                        existing_s3_key,
+                        file_path
+                    )
+                    print(f"✅ Downloaded file from S3: {existing_s3_key} -> {file_path}")
+                    # Continue processing with the downloaded file
+                except Exception as e:
+                    print(f"⚠️  Could not download from S3: {e}. Will try to process with existing local file if available.")
+                    # If download fails, try to process with local file if it exists
+                    if not os.path.exists(file_path):
+                        return {
+                            "success": False,
+                            "error": f"File '{filename}' exists in S3 but could not be downloaded for processing: {str(e)}",
+                            "already_exists": True,
+                            "processing_time": datetime.now().isoformat()
+                        }
             
             # Read PDF file
             with open(file_path, 'rb') as document:

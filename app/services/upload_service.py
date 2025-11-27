@@ -237,12 +237,10 @@ class UploadService:
                         "confidence": existing_doc.confidence,
                         "processing_time": existing_doc.created_at.isoformat() if existing_doc.created_at else datetime.now().isoformat()
                     }
-            # File exists in S3 but no processed data - skip re-processing to avoid duplicate S3 upload
-            return {
-                "success": False,
-                "error": f"File '{filename}' already exists in S3 but processed data was not found. To re-process, please delete the file from S3 first.",
-                "already_exists": True
-            }
+            # File exists in S3 but no processed data AND not in database
+            # Allow re-processing by downloading from S3 and processing
+            print(f"⚠️  File exists in S3 but no processed data found. Will re-process using S3 file.")
+            # Continue to processing - the PDFProcessor will use the existing S3 file
         
         # Mark file as being processed
         self._processing_files.add(filename)
