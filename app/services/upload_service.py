@@ -114,11 +114,42 @@ class UploadService:
     
     async def process_uploaded_pdf(self, filename: str, db: Session = None) -> dict:
         """Process an uploaded PDF file and extract data"""
+        # First, try the exact filename
         file_path = self.get_file_path(filename)
+        
+        # If file doesn't exist, try to find it by sanitizing the filename
+        # (in case the file was saved with a sanitized name)
+        if not os.path.exists(file_path):
+            # Try sanitized version
+            sanitized = self._sanitize_filename(filename)
+            sanitized_path = self.get_file_path(sanitized)
+            if os.path.exists(sanitized_path):
+                file_path = sanitized_path
+                filename = sanitized
+                print(f"✅ Found file with sanitized name: {sanitized}")
+            else:
+                # Try to find any file that matches (case-insensitive, ignoring special chars)
+                # List all files in upload directory and find a match
+                if os.path.exists(self.upload_dir):
+                    for existing_file in os.listdir(self.upload_dir):
+                        # Compare base names (without extension differences)
+                        existing_base = os.path.splitext(existing_file)[0].lower()
+                        target_base = os.path.splitext(sanitized)[0].lower()
+                        # Remove common variations
+                        existing_clean = existing_base.replace('_', '').replace('-', '').replace(' ', '')
+                        target_clean = target_base.replace('_', '').replace('-', '').replace(' ', '')
+                        if existing_clean == target_clean or existing_base == target_base:
+                            file_path = self.get_file_path(existing_file)
+                            filename = existing_file
+                            print(f"✅ Found matching file: {existing_file}")
+                            break
         
         print(f"🔍 Processing file: {filename}")
         print(f"🔍 File path: {file_path}")
         print(f"🔍 File exists: {os.path.exists(file_path)}")
+        print(f"🔍 Upload directory exists: {os.path.exists(self.upload_dir)}")
+        if os.path.exists(self.upload_dir):
+            print(f"🔍 Files in upload directory: {os.listdir(self.upload_dir)}")
         
         if not os.path.exists(file_path):
             error_msg = f"File '{filename}' not found at path '{file_path}'. Please upload the file first."
