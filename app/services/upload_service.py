@@ -116,7 +116,18 @@ class UploadService:
         """Process an uploaded PDF file and extract data"""
         file_path = self.get_file_path(filename)
         
+        print(f"🔍 Processing file: {filename}")
+        print(f"🔍 File path: {file_path}")
+        print(f"🔍 File exists: {os.path.exists(file_path)}")
+        
         if not os.path.exists(file_path):
+            error_msg = f"File '{filename}' not found at path '{file_path}'. Please upload the file first."
+            print(f"❌ {error_msg}")
+            return {
+                "success": False,
+                "error": error_msg,
+                "error_type": "file_not_found"
+            }
             return {"success": False, "error": "File not found"}
         
         # Check if it's a PDF

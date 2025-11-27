@@ -52,16 +52,25 @@ class PDFProcessor:
         temp_s3_key = None
         try:
             if not self.textract_client or not self.s3_client:
+                error_msg = "AWS clients not initialized. Please configure AWS credentials and S3 bucket."
+                print(f"❌ {error_msg}")
+                print(f"   AWS_ACCESS_KEY_ID set: {bool(settings.aws_access_key_id)}")
+                print(f"   AWS_SECRET_ACCESS_KEY set: {bool(settings.aws_secret_access_key)}")
+                print(f"   AWS_REGION: {settings.aws_region}")
                 return {
                     "success": False,
-                    "error": "AWS clients not initialized. Please configure AWS credentials and S3 bucket.",
+                    "error": error_msg,
+                    "error_type": "aws_not_configured",
                     "processing_time": datetime.now().isoformat()
                 }
             
             if not settings.aws_s3_bucket:
+                error_msg = "S3 bucket not configured. Please set AWS_S3_BUCKET in environment variables."
+                print(f"❌ {error_msg}")
                 return {
                     "success": False,
-                    "error": "S3 bucket not configured. Please set AWS_S3_BUCKET in .env file.",
+                    "error": error_msg,
+                    "error_type": "s3_bucket_not_configured",
                     "processing_time": datetime.now().isoformat()
                 }
             

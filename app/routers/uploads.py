@@ -59,10 +59,19 @@ async def process_pdf(filename: str, db: Session = Depends(get_db)):
         result = await upload_service.process_uploaded_pdf(filename, db)
         
         if not result.get("success", False):
-            raise HTTPException(status_code=400, detail=result.get("error", "Processing failed"))
+            error_message = result.get("error", "Processing failed")
+            # Log the error for debugging
+            print(f"❌ Processing failed for {filename}: {error_message}")
+            raise HTTPException(
+                status_code=400, 
+                detail=error_message,
+                headers={"X-Error-Type": result.get("error_type", "processing_error")}
+            )
         
         return result
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to process PDF: {str(e)}")
+        error_msg = f"Failed to process PDF: {str(e)}"
+        print(f"❌ Exception processing {filename}: {error_msg}")
+        raise HTTPException(status_code=500, detail=error_msg)
