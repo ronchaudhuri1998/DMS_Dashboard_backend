@@ -175,8 +175,8 @@ class PDFProcessor:
                     "processing_time": datetime.now().isoformat()
                 }
             
-            # Classify document type
-            document_type = self._classify_document(text_content)
+            # Classify document type (filename hint first)
+            document_type = self._guess_document_type_from_filename(filename) or self._classify_document(text_content)
             
             # Move file to organized folder based on document type
             permanent_s3_key = self._organize_file_in_s3(temp_s3_key, filename, document_type)
@@ -190,6 +190,14 @@ class PDFProcessor:
             
             # Extract structured data
             extracted_data = self._extract_structured_data(text_content, document_type, "")
+
+            # Force document type based on extracted identifiers
+            if extracted_data.get("invoice_number"):
+                document_type = "Client Invoice"
+            elif extracted_data.get("po_number"):
+                document_type = "Client PO"
+            elif extracted_data.get("msa_number"):
+                document_type = "Service Agreement"
             
             # Calculate confidence score
             confidence = self._calculate_confidence(text_content, document_type)
@@ -542,7 +550,7 @@ class PDFProcessor:
             "Vendor PO": ["purchase order", "vendor", "supplier", "order to"],
             "Client Invoice": ["invoice", "client", "bill to", "invoice to"],
             "Vendor Invoice": ["invoice", "vendor", "supplier", "invoice from"],
-            "Service Agreement": ["agreement", "contract", "service", "terms and conditions"]
+            "Service Agreement": ["master service agreement", "msa", "service agreement", "agreement", "contract", "scope summary", "expiration date"]
         }
         
         scores = {}
@@ -580,6 +588,16 @@ class PDFProcessor:
         }
         
         return extracted
+
+    def _guess_document_type_from_filename(self, filename: str) -> Optional[str]:
+        fname_lower = filename.lower()
+        if "msa" in fname_lower or "agreement" in fname_lower or "contract" in fname_lower:
+            return "Service Agreement"
+        if "invoice" in fname_lower or "inv" in fname_lower:
+            return "Client Invoice"
+        if "po" in fname_lower or "purchase" in fname_lower:
+            return "Client PO"
+        return None
     
     def _extract_title(self, text: str) -> str:
         """Extract document title"""

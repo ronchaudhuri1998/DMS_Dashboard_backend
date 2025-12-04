@@ -16,10 +16,16 @@ class DocumentService:
         self.db = db
     
     def create_document(self, document: DocumentCreate) -> Document:
+        normalized_category = document.category
+        client_lower = (document.client or "").lower()
+        if normalized_category in ["Client PO", "Vendor PO"] and client_lower in ["google llc", "platform clients", "emb global"]:
+            normalized_category = "Service Agreement"
+
         db_document = Document(
             id=str(uuid.uuid4()),
-            **document.dict()
+            **{**document.dict(), "category": normalized_category}
         )
+        db_document.msa_number = self._normalize_msa_value(document.msa_number)
         self.db.add(db_document)
         self.db.commit()
         self.db.refresh(db_document)

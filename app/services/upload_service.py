@@ -61,6 +61,25 @@ class UploadService:
                 # Fallback to UUID if we can't find a unique name
                 return f"{name}_{uuid.uuid4().hex[:8]}{ext}"
     
+    MSA_PATTERN = re.compile(r"(MSA[\s#:\-]*\d{3,}(?:[-/]\d{2,})?)", re.IGNORECASE)
+
+    def _normalize_msa_number(self, value: str | None) -> str | None:
+        if not value:
+            return None
+        cleaned = value.strip().upper().replace(" ", "").replace("_", "-")
+        match = self.MSA_PATTERN.search(cleaned)
+        if not match:
+            generic = re.search(r"(\d{4}[-/]\d{3,})", cleaned)
+            if generic:
+                cleaned = generic.group(1)
+            else:
+                return None
+        else:
+            cleaned = match.group(1)
+        if not cleaned.startswith("MSA"):
+            cleaned = f"MSA-{cleaned}"
+        return cleaned
+
     async def upload_files(self, files: List[UploadFile]) -> UploadResponse:
         uploads = []
         
@@ -326,6 +345,8 @@ class UploadService:
             or filename
         )
 
+        normalized_msa = self._normalize_msa_number(extracted_data.get("msa_number"))
+
         document_create = DocumentCreate(
             title=document_title,
             category=document_type,
@@ -341,15 +362,25 @@ class UploadService:
             processed=True,
             po_number=extracted_data.get("po_number"),
             invoice_number=extracted_data.get("invoice_number"),
-            msa_number=extracted_data.get("msa_number")
+            msa_number=normalized_msa
         )
         
         # Use the enhanced duplicate check method
         existing_doc = self._check_document_exists_in_db(filename, db, extracted_data)
         
         if existing_doc:
-            # Document already exists - return it without updating
-            print(f"⚠️  Document already exists in database (ID: {existing_doc.id}, file_path: {existing_doc.file_path}) - skipping save")
+            updated = False
+            normalized_msa = self._normalize_msa_number(extracted_data.get("msa_number"))
+            if normalized_msa and existing_doc.msa_number != normalized_msa:
+                existing_doc.msa_number = normalized_msa
+                updated = True
+            if document_type == "Service Agreement" and existing_doc.category != document_type:
+                existing_doc.category = document_type
+                updated = True
+            if updated:
+                db.commit()
+                db.refresh(existing_doc)
+            print(f"⚠️  Document already exists in database (ID: {existing_doc.id}, file_path: {existing_doc.file_path}) - updating metadata and skipping save")
             return existing_doc
         
         # Create new document with the extracted document_id
